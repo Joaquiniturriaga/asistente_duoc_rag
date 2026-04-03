@@ -1,0 +1,20 @@
+# Entornos virtuales
+venv/
+venv_pro/
+env/
+.venv/
+
+# Variables de entorno (¡NUNCA SUBIR EL TOKEN!)
+.env
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Base de datos vectorial
+faiss_index/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
