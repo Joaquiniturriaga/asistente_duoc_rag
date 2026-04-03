@@ -69,3 +69,16 @@ Inicia la interfaz de consola para conversar con el agente RAG.
 Bash
 python src/chat.py
 Escribe tu pregunta (ej. "¿Cuál es la asistencia mínima para aprobar?") o escribe salir para terminar el programa.
+
+
+
+NOTAS IMPORTANTES 
+El sistema actual es altamente preciso al responder consultas que utilizan el mismo vocabulario formal del PDF (ej. "Titulación", "Eliminación Académica"). Sin embargo, presenta un rendimiento deficiente frente a lenguaje coloquial o sinónimos informales utilizados comúnmente por los estudiantes (ej. "egresar", "echarse un ramo", "salir de la carrera").
+
+PREGUNTAS LITERALES:
+
+1)Como puedo egresar de la carrera
+2)Dime el articulo numero 1
+
+Preguntas que fallaran
+Terminos no involucrados en reglamento 2025
