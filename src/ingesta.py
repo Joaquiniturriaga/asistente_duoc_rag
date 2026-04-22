@@ -1,46 +1,75 @@
 import os
+import time
 from dotenv import load_dotenv
+from pymongo import MongoClient
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_mongodb import MongoDBAtlasVectorSearch
-from pymongo import MongoClient
 
-# 1. Cargar variables de entorno
-load_dotenv()
-os.environ["OPENAI_API_KEY"] = os.getenv("GITHUB_TOKEN")
-os.environ["OPENAI_API_BASE"] = "https://models.inference.ai.azure.com"
+load_dotenv(override=True)
 
 def procesar_documentos():
-    print("1. Conectando a MongoDB Atlas...")
     client = MongoClient(os.getenv("MONGO_URI"))
     db_name = "AsistenteDuoc"
     collection_name = "embeddings"
     collection = client[db_name][collection_name]
 
-    print("2. Cargando documento(s) local(es)...")
-    loader = PyPDFLoader("reglamento.pdf") 
+    loader = PyPDFLoader("reglamento.pdf")
     documentos = loader.load()
 
-    print("3. Fragmentando (Chunking) el texto...")
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        add_start_index=True
+        chunk_size=1000,
+        chunk_overlap=150,
+        add_start_index=True,
+        separators=["\n\n", "\n", ". ", " "]
     )
     chunks = text_splitter.split_documents(documentos)
 
-    print(f"4. Generando vectores y subiendo {len(chunks)} fragmentos a la nube...")
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+    batch_size = 15
+    for batch_idx in range(0, len(chunks), batch_size):
+        batch = chunks[batch_idx:batch_idx + batch_size]
+        
+        batch_prompt = (
+            "Genera 5 términos de búsqueda (jerga estudiantil y términos técnicos) para estos textos. "
+            "Responde solo en este formato: [f1]: t1, t2... [f2]: t1, t2...\n\n"
+        )
+        
+        for idx, chunk in enumerate(batch):
+            batch_prompt += f"[f{idx+1}]:\n{chunk.page_content[:400]}\n\n"
+        
+        try:
+            response = llm.invoke(batch_prompt)
+            lines = response.content.strip().split('\n')
+            
+            for idx, chunk in enumerate(batch):
+                try:
+                    line = [l for l in lines if f"f{idx+1}" in l.lower()][0]
+                    keywords = line.split(':', 1)[1].strip()
+                    
+                    chunk.page_content = f"Términos clave: {keywords}\nContenido: {chunk.page_content}"
+                    chunk.metadata["keywords"] = keywords
+                except:
+                    chunk.page_content = f"Términos clave: reglamento, duoc\nContenido: {chunk.page_content}"
+                
+                chunk.metadata["intent"] = "Reglamento Académico"
+        
+        except Exception:
+            for chunk in batch:
+                chunk.page_content = f"Términos clave: reglamento\nContenido: {chunk.page_content}"
+        
+        time.sleep(1)
+
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-    # Guardar en MongoDB Atlas
     MongoDBAtlasVectorSearch.from_documents(
         documents=chunks,
         embedding=embeddings,
         collection=collection,
         index_name="vector_index"
     )
-    print("✅ ¡Éxito! Vectores guardados permanentemente en MongoDB Atlas.")
 
 if __name__ == "__main__":
     procesar_documentos()

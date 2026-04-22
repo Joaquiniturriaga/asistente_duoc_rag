@@ -9,12 +9,10 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 
-# 1. Load environment variables
 load_dotenv()
 os.environ["OPENAI_API_KEY"] = os.getenv("GITHUB_TOKEN")
 os.environ["OPENAI_API_BASE"] = "https://models.inference.ai.azure.com"
 
-# Store for session history
 session_store = {}
 
 def get_session_history(session_id: str):
@@ -26,9 +24,6 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 def start_chat():
-    print("🌐 Conectando con la base de datos en MongoDB Atlas...")
-
-    # 2. Configure Cloud Retriever
     client = MongoClient(os.getenv("MONGO_URI"))
     collection = client["AsistenteDuoc"]["embeddings"]
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
@@ -39,30 +34,42 @@ def start_chat():
         index_name="vector_index"
     )
     
-    # Retrieve the 5 most relevant chunks
-    retriever = vector_search.as_retriever(search_kwargs={"k": 5})
+    retriever = vector_search.as_retriever(search_kwargs={"k": 8})
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
 
-    # 3. Configure LLM and Optimized English Prompt
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+    traductor_prompt = ChatPromptTemplate.from_template(
+        "Eres un orientador de Duoc UC. Traduce esta duda de un alumno a lenguaje académico "
+        "para buscar en el reglamento. Si usa jerga como 'echarse', 'botar', 'faltar', "
+        "usa los términos técnicos correspondientes. Solo entrega la traducción:\n{input}"
+    )
+    traductor = traductor_prompt | llm | StrOutputParser()
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an academic advisor at Duoc UC. Your goal is to help students based ONLY on the provided regulations context. If the student's question is not in the context, reply exactly: 'Estimado estudiante, esa información no se encuentra en el documento oficial.' Maintain a formal but empathetic tone. ALWAYS reply in Spanish."),
+        ("system", "Eres un orientador académico de Duoc UC. Tu objetivo es ayudar al estudiante. "
+                   "Usa el contexto del reglamento para responder de forma clara, formal y empática. "
+                   "Si la información exacta no está, intenta orientar al alumno con lo que sepas "
+                   "del contexto o dile que consulte a su director de carrera si el tema es muy específico."),
         MessagesPlaceholder(variable_name="history"),
-        ("system", "Recovered context from database:\n{context}"),
-        ("human", "Student query: {input}"),
+        ("system", "Contexto del reglamento:\n{context}"),
+        ("human", "{input}"),
     ])
+    def debug_retrieval(inputs):
+        user_query = inputs["input"]
+        query_formal = traductor.invoke({"input": user_query})
+        docs = retriever.invoke(query_formal)
+        contexto = format_docs(docs)
+        print(f"\n🔍 [DEBUG] Buscando: '{query_formal}'")
+        return contexto
 
-    # 4. Build RAG Chain
     rag_chain = (
         RunnablePassthrough.assign(
-            context=lambda x: format_docs(retriever.invoke(x["input"]))
+            context=debug_retrieval
         )
         | prompt
         | llm
         | StrOutputParser()
     )
 
-    # 5. Wrap with message history
     conversational_chain = RunnableWithMessageHistory(
         rag_chain,
         get_session_history,
@@ -70,29 +77,19 @@ def start_chat():
         history_messages_key="history",
     )
 
-    print("\n✅ ¡Listo! Soy tu orientador académico virtual de Duoc UC conectado a la nube.")
-    print("Escribe 'salir' en cualquier momento para terminar.\n")
-    
-    config = {"configurable": {"session_id": "alumno_duoc_1"}}
+    print("Orientador virtual Duoc UC activo. Escribe 'salir' para cerrar.\n")
+    config = {"configurable": {"session_id": "sesion_activa"}}
 
     while True:
         user_input = input("Tú: ")
-        
-        if user_input.lower() in ['salir', 'exit', 'quit']:
-            print("Orientador: ¡Nos vemos! Mucho éxito en tus estudios.")
-            break
+        if user_input.lower() in ['salir', 'exit', 'quit']: break
+        if not user_input.strip(): continue
 
-        if user_input.strip() == "":
-            continue
-        
-        # Invoke the chain
-        response = conversational_chain.invoke(
-            {"input": user_input},
-            config=config
-        )
-
-        print(f"\n🤖 Orientador: {response}\n")
-        print("-" * 50)
+        try:
+            response = conversational_chain.invoke({"input": user_input}, config=config)
+            print(f"\n🤖 Orientador: {response}\n" + "-"*50)
+        except Exception as e:
+            print(f"\n❌ Error en la respuesta: {e}")
 
 if __name__ == "__main__":
     start_chat()
