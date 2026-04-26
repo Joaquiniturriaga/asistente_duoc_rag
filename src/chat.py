@@ -58,7 +58,7 @@ def start_chat():
         query_formal = traductor.invoke({"input": user_query})
         docs = retriever.invoke(query_formal)
         contexto = format_docs(docs)
-        print(f"\n🔍 [DEBUG] Buscando: '{query_formal}'")
+        print(f"\n [DEBUG] Buscando: '{query_formal}'")
         return contexto
 
     rag_chain = (
@@ -87,9 +87,9 @@ def start_chat():
 
         try:
             response = conversational_chain.invoke({"input": user_input}, config=config)
-            print(f"\n🤖 Orientador: {response}\n" + "-"*50)
+            print(f"\n Orientador: {response}\n" + "-"*50)
         except Exception as e:
-            print(f"\n❌ Error en la respuesta: {e}")
+            print(f"\n Error en la respuesta: {e}")
 
 if __name__ == "__main__":
     start_chat()
