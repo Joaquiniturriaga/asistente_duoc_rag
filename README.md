@@ -14,7 +14,7 @@ Instalación y Configuración
 Clonar el repositorio:
 
 Bash
-git clone [url-del-repo]
+git clone https://github.com/Joaquiniturriaga/asistente_duoc_rag.git
 cd asistente_duoc_rag
 Crear y activar entorno virtual:
 
@@ -29,7 +29,7 @@ Instalar dependencias:
 Bash
 pip install -r requirements.txt
 Configurar variables de entorno:
-Crea un archivo .env en la raíz del proyecto basándote en el archivo .env.example proporcionado.
+Crea un archivo .env en la raíz del proyecto basándote en el archivo .env.example y en mensaje se encuentran presente las credenciales.
 
 Uso
 Para iniciar el asistente, simplemente ejecuta el motor de chat. Nota: No es necesario ejecutar el script de ingesta, ya que el clúster de MongoDB ya contiene los datos procesados del reglamento.
