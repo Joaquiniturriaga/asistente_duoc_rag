@@ -1,10 +1,10 @@
 asistente_duoc_rag/
 ├── src/
 │   ├── chat.py          # El motor del agente
-│   └── ingesta.py       # Script de carga (por si quiere verlo)
+│   └── ingesta.py       # Script de carga 
 ├── data/
 │   └── reglamento.pdf   # El documento fuente
-├── .env                 # Las llaves (entregárselo listo)
+├── .env                 # Las llaves 
 ├── requirements.txt     # Librerías necesarias
 └── README.md            # Instrucciones rápidas
 
